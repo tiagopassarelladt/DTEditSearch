@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{4EC6EE18-B66D-4C6E-A7E8-80EEF83DFE6E}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="DTButtonEdit.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Demo\Fontes\Demo.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="DTButtonEdit">
+        <MSBuild Projects="DTButtonEdit.dproj"/>
+    </Target>
+    <Target Name="DTButtonEdit:Clean">
+        <MSBuild Projects="DTButtonEdit.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DTButtonEdit:Make">
+        <MSBuild Projects="DTButtonEdit.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Demo">
+        <MSBuild Projects="Demo\Fontes\Demo.dproj"/>
+    </Target>
+    <Target Name="Demo:Clean">
+        <MSBuild Projects="Demo\Fontes\Demo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Demo:Make">
+        <MSBuild Projects="Demo\Fontes\Demo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="DTButtonEdit;Demo"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="DTButtonEdit:Clean;Demo:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="DTButtonEdit:Make;Demo:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

@@ -1,0 +1,121 @@
+object Form5: TForm5
+  Left = 0
+  Top = 0
+  ActiveControl = DTEditButton1
+  BorderIcons = [biSystemMenu]
+  BorderStyle = bsSingle
+  Caption = 'Demo DTEditSearsh - Passarella Sistemas'
+  ClientHeight = 55
+  ClientWidth = 491
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poScreenCenter
+  WindowState = wsMaximized
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 491
+    Height = 49
+    Align = alTop
+    TabOrder = 0
+    object Edit1: TEdit
+      Left = 151
+      Top = 15
+      Width = 330
+      Height = 21
+      TabOrder = 0
+    end
+    object DTEditButton1: TDTEditButton
+      Left = 8
+      Top = 15
+      Width = 137
+      Height = 21
+      DataField = 'VirtualField'
+      Enabled = True
+      TabOrder = 1
+      Configurar.Campos = <
+        item
+          Campo = 'CODIGO'
+          Largura = 100
+          Titulo = 'CODIGO'
+        end
+        item
+          Campo = 'DESCRICAO'
+          Largura = 250
+          Titulo = 'DESCRICAO'
+        end
+        item
+          Campo = 'VENDA'
+          Titulo = 'VALOR'
+          Tipo = dtFloat
+        end>
+      Configurar.Connection = FDConnection
+      Configurar.Tabela = 'TBPRODUTO'
+      Configurar.OrderBy = 'DESCRICAO'
+      Configurar.FieldResult = 'DESCRICAO'
+      Configurar.OndeMostrar = Edit1
+      Configurar.TeclaPesquisa = 119
+      Configurar.KeyField = 'CODIGO'
+      Configurar.Filtro = 'DESCRICAO'
+      Configurar.CorZebrado = 16315878
+      Configurar.CorSelecao = 15524797
+      Configurar.Titulo = 'Pesquisa de produtos'
+      NumGlyphs = 1
+      Text = ''
+    end
+  end
+  object FDPhysFBDriverLink: TFDPhysFBDriverLink
+    VendorLib = 'c:\supersys10\fbclient.dll'
+    Left = 416
+    Top = 8
+  end
+  object FDConnection: TFDConnection
+    Params.Strings = (
+      'Database=C:\SUPERSYS10\Dados\SUPERSYS.FDB'
+      'Password=masterkey'
+      'User_Name=SYSDBA'
+      'DriverID=FB')
+    FormatOptions.AssignedValues = [fvFmtDisplayDate, fvFmtDisplayTime]
+    FormatOptions.FmtDisplayDate = 'dd/mm/yyyy'
+    FormatOptions.FmtDisplayTime = 'hh:mm:ss'
+    LoginPrompt = False
+    Left = 168
+    Top = 8
+  end
+  object FDQuery1: TFDQuery
+    Connection = FDConnection
+    SQL.Strings = (
+      'SELECT CODIGO,DESCRICAO,VENDA FROM TBPRODUTO')
+    Left = 336
+    Top = 8
+    object FDQuery1CODIGO: TStringField
+      FieldName = 'CODIGO'
+      Origin = 'CODIGO'
+      Size = 14
+    end
+    object FDQuery1DESCRICAO: TStringField
+      FieldName = 'DESCRICAO'
+      Origin = 'DESCRICAO'
+      Size = 70
+    end
+    object FDQuery1VENDA: TFloatField
+      FieldName = 'VENDA'
+      Origin = 'VENDA'
+      DisplayFormat = '#,##0.00'
+    end
+  end
+  object DataSource1: TDataSource
+    DataSet = FDQuery1
+    Left = 256
+    Top = 8
+  end
+end

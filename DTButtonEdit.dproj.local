@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2022/06/06 20:11:53.000.039,D:\Dropbox\Componentes\DTEditSearch\AZButtonEdit.dproj=D:\Dropbox\Componentes\DTEditSearch\DTButtonEdit.dproj</Transaction>
+    <Transaction>2022/06/06 20:12:04.000.382,D:\Dropbox\Componentes\DTEditSearch\Fontes\AZEditButton.pas=D:\Dropbox\Componentes\DTEditSearch\Fontes\DTEditButton.pas</Transaction>
+  </Transactions>
+	<ProjectSortOrder AutoSort="0" SortType="0">
+    <File Path="Fontes"/>
+    <File Path="Fontes\DTEditButton.pas"/>
+    <File Path="Fontes\FEditDialog.pas"/>
+    <File Path="Fontes\FEditDialog.dfm"/>
+    <File Path="dbrtl.dcp"/>
+    <File Path="FireDAC.dcp"/>
+    <File Path="FireDACCommon.dcp"/>
+    <File Path="FireDACCommonDriver.dcp"/>
+    <File Path="rtl.dcp"/>
+    <File Path="vcl.dcp"/>
+    <File Path="vcldb.dcp"/>
+    <File Path="vclFireDAC.dcp"/>
+    <File Path="vclimg.dcp"/>
+  </ProjectSortOrder>
+</BorlandProject>

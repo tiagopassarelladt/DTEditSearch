@@ -1,0 +1,315 @@
+﻿unit FEditDialog;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls, System.Actions,
+  Vcl.ActnList, Vcl.Imaging.pngimage, Vcl.ExtCtrls, Vcl.Buttons, Vcl.ComCtrls,
+  Vcl.Grids, Vcl.DBGrids,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Error,
+  FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool,
+  FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait, FireDAC.Stan.Param,
+  FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt, FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client, System.ImageList, Vcl.ImgList,
+  DTEditButton;
+
+type
+  TFrmEditDialog = class(TForm)
+    pnlMain: TPanel;
+    pnlCriteria: TPanel;
+    pnlGrid: TPanel;
+    pnlButtons: TPanel;
+    dsSearch: TDataSource;
+    gridDados: TDBGrid;
+    pnlInput: TPanel;
+    stbInfo: TStatusBar;
+    Panel1: TPanel;
+    cbxCampos: TComboBox;
+    cbxOpcao: TComboBox;
+    EditPesquisa: TEdit;
+    QrySearch: TFDQuery;
+    LblBarraTitulo: TLabel;
+    Image1: TImage;
+    pnlLabels: TPanel;
+    lblField: TLabel;
+    lblComparison: TLabel;
+    lblValue: TLabel;
+    btnProcurar: TSpeedButton;
+    ActionList1: TActionList;
+    actProcurar: TAction;
+    actConfirmar: TAction;
+    actCancelar: TAction;
+    btnOK: TBitBtn;
+    btnCancel: TBitBtn;
+    procedure FormShow(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure EditPesquisaKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure actProcurarExecute(Sender: TObject);
+    procedure actConfirmarExecute(Sender: TObject);
+    procedure actCancelarExecute(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure cbxOpcaoCloseUp(Sender: TObject);
+    procedure cbxCamposCloseUp(Sender: TObject);
+    procedure EditPesquisaChange(Sender: TObject);
+    procedure gridDadosDrawColumnCell(Sender: TObject; const Rect: TRect;
+      DataCol: Integer; Column: TColumn; State: TGridDrawState);
+  private
+    FBusca    : TDetalhes;
+    FAlterado : Boolean;
+    procedure MontarCombos;
+    procedure MontarGrid;
+    Function  MontarSQL() : String;
+    procedure Procurar;
+    procedure SetarFoco;
+  public
+    property Busca : TDetalhes          read FBusca           write FBusca;
+  end;
+
+var
+  FrmEditDialog: TFrmEditDialog;
+
+implementation
+
+{$R *.DFM}
+
+procedure TFrmEditDialog.actCancelarExecute(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TFrmEditDialog.actConfirmarExecute(Sender: TObject);
+begin
+  ModalResult := mrNone;
+  if QrySearch.IsEmpty then
+    exit;
+  FBusca.KeyValue  := QrySearch.FieldByName(FBusca.KeyField).AsVariant;
+  FBusca.Resultado := QrySearch.FieldByName(FBusca.FieldResult).AsString;
+  ModalResult      := mrOk;
+end;
+
+procedure TFrmEditDialog.actProcurarExecute(Sender: TObject);
+begin
+  Procurar;
+end;
+
+procedure TFrmEditDialog.cbxCamposCloseUp(Sender: TObject);
+begin
+  EditPesquisa.SetFocus;
+end;
+
+procedure TFrmEditDialog.cbxOpcaoCloseUp(Sender: TObject);
+begin
+  EditPesquisa.SetFocus;
+end;
+
+procedure TFrmEditDialog.SetarFoco;
+begin
+
+  EditPesquisa.SetFocus;
+end;
+
+procedure TFrmEditDialog.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  QrySearch.Close();
+end;
+
+procedure TFrmEditDialog.FormCreate(Sender: TObject);
+begin
+  FAlterado              := True;  // Instanciar com True, para que o primeiro ENTER faça pesquisa inicial
+  ModalResult            := mrNone;
+  btnOK.ModalResult      := mrOk;
+  btnOK.Enabled          := False;
+  btnCancel.ModalResult  := mrCancel;
+  LblBarraTitulo.Caption := Busca.Titulo;
+end;
+
+procedure TFrmEditDialog.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  case Key of
+    VK_ESCAPE: begin
+                 actCancelar.Execute;
+               end;
+    VK_F2:  begin
+              actConfirmar.Execute;
+            end;
+    VK_UP:  begin
+              if not QrySearch.Bof then
+              begin
+                gridDados.DataSource.DataSet.MoveBy(-1)
+              end;
+            end;
+    VK_DOWN: begin
+              if not QrySearch.Eof then
+              begin
+                gridDados.DataSource.DataSet.MoveBy(1);
+              end;
+             end;
+    VK_RETURN: begin
+                 if FAlterado then
+                 begin
+                   Procurar;
+                 end
+                 else
+                 begin
+                   actConfirmar.Execute;
+                 end;
+               end;
+  end;
+end;
+
+procedure TFrmEditDialog.FormShow(Sender: TObject);
+begin
+  QrySearch.Connection := FBusca.Connection;
+  MontarCombos;
+  MontarGrid;
+  EditPesquisa.SetFocus;
+end;
+
+procedure TFrmEditDialog.gridDadosDrawColumnCell(Sender: TObject;
+  const Rect: TRect; DataCol: Integer; Column: TColumn; State: TGridDrawState);
+begin
+ShowScrollBar(gridDados.Handle,SB_HORZ ,False);
+ if odd(QrySearch.RecNo) then
+    gridDados.Canvas.Brush.Color:= Busca.CorZebrado
+ else
+    gridDados.Canvas.Brush.Color:= clWhite;
+    TDbGrid(Sender).Canvas.font.Color:= clBlack;
+
+  if gdSelected in State then
+  with (Sender as TDBGrid).Canvas do
+  begin
+    Brush.Color := Busca.CorSelecao;
+    FillRect(Rect);
+    Font.Style := [fsbold]
+  end;
+  TDbGrid(Sender).DefaultDrawDataCell(Rect, TDbGrid(Sender).columns[datacol].field, State);
+end;
+
+procedure TFrmEditDialog.MontarGrid;
+var
+  i       : integer;
+  mColuna : TColumn;
+  mItem   : TCamposCollectionItem;
+begin
+  gridDados.Columns.Clear;
+  for I := 0 to FBusca.Campos.Count-1 do
+  begin
+    mItem                 := FBusca.Campos.Items[i];
+    mColuna               := gridDados.Columns.Add;
+    mColuna.FieldName     := mItem.Campo;
+    mColuna.Title.Caption := mItem.Titulo;
+    mColuna.Width         := mItem.Largura;
+  end;
+end;
+
+procedure TFrmEditDialog.MontarCombos;
+var
+  i       : integer;
+  mItem   : TCamposCollectionItem;
+begin
+  cbxCampos.Clear;
+  for I := 0 to FBusca.Campos.Count-1 do
+  begin
+    mItem  := FBusca.Campos.Items[i];
+    cbxCampos.Items.Add(mItem.Titulo);
+  end;
+  cbxCampos.ItemIndex := 0;
+end;
+
+Function TFrmEditDialog.MontarSQL() : String;
+var
+  i            : integer;
+  mCampoLista  : String;
+  mWhere       : String;
+  mItem        : TCamposCollectionItem;
+  mDetalhe     : TCamposCollectionItem;
+  FSQL         : String;
+  mDigitado    : String;
+  mOrderBy     : String;
+begin
+  Result        := '';
+  mWhere        := '';
+  mOrderBy      := '';
+  mDetalhe      := FBusca.Campos.Items[FBusca.GetIndexTitle(cbxCampos.Text)];
+  mDigitado     := AnsiLowerCase(Trim(EditPesquisa.Text)); // convertendo para minusculo minimiza conflitos com caracteres graficos (é comum ocorrer esse erro em algus bancos (PostreSQL, por exemplo), onde 'ç' fica sempre minusculo)
+  mCampoLista   := ' '+UpperCase(FBusca.KeyField);
+  for I := 0 to FBusca.Campos.Count-1 do
+  begin
+    mItem := FBusca.Campos.Items[i];
+    if AnsiLowerCase(FBusca.KeyField)=AnsiLowerCase(mItem.Campo) then  // Campo KeyField não pode coincidir com a lista de campos, para evitar duplicidade.
+      Continue;
+    mCampoLista := Concat(mCampoLista,', ',UpperCase(mItem.Campo),' ')
+  end;
+  mWhere := ' WHERE ';
+  if FBusca.Filtro > '' then
+  begin
+    mWhere := mWhere + FBusca.Filtro;
+    mWhere := mWhere + ' AND ';
+  end;
+
+  if not FBusca.OrderBy.IsEmpty then
+    mOrderBy := ' ORDER BY '+FBusca.OrderBy;
+  case cbxOpcao.ItemIndex of
+    0 {Contem}   : begin
+                     mWhere := mWhere + ' Lower('+mDetalhe.Campo+') like ' + QuotedStr('%'+mDigitado+'%'); // será tratado como texto entre apóstrofos (aspas simples).
+                   end;
+    1 {Igual}    : begin
+                      if mDetalhe.Tipo=dtInteger then
+                        mWhere := mWhere + mDetalhe.Campo+'=' + mDigitado             // será tratado como numerico
+                      else
+                        mWhere := mWhere + mDetalhe.Campo+'=' + QuotedStr(mDigitado); // sera tratado como texto entre apóstrofos (aspas simples).
+                   end;
+  end;
+  FSQL   := Format(_SQL,[mCampoLista, FBusca.Tabela, mWhere, mOrderBy]);
+  Result := FSQL;
+end;
+
+procedure TFrmEditDialog.EditPesquisaChange(Sender: TObject);
+var
+  mTexto : String;
+begin
+  FAlterado := True;
+end;
+
+procedure TFrmEditDialog.EditPesquisaKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_RETURN then
+  begin
+     Procurar;
+  end;
+end;
+
+procedure TFrmEditDialog.Procurar;
+var
+  mSQL : String;
+  I: Integer;
+begin
+  if FAlterado = False then // Sair se nao teve alteração no Edit.
+    exit;
+  mSQL := '';
+  mSQL := MontarSQL();
+  QrySearch.Close();
+  QrySearch.SQL.Clear;
+  QrySearch.SQL.Add(mSQL);
+  QrySearch.Open();
+  QrySearch.FetchAll;
+
+  for I := 0 to Pred( QrySearch.Fields.Count ) do
+  begin
+        if ( QrySearch.Fields[I].DataType = ftFloat ) OR ( QrySearch.Fields[I].DataType = ftCurrency ) OR ( QrySearch.Fields[I].DataType = ftFMTBcd ) then
+        begin
+            QrySearch.Edit;
+            TNumericField(QrySearch.Fields[I]).DisplayFormat := '#,##0.00';
+            QrySearch.Post;
+        end;
+  end;
+
+  btnOK.Enabled := not QrySearch.IsEmpty;
+  FAlterado := False;
+end;
+
+end.

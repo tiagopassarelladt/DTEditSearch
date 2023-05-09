@@ -1,0 +1,807 @@
+
+unit DTEditButton;
+
+interface
+uses
+
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Buttons, Vcl.StdCtrls,
+  System.Generics.Collections, Vcl.ExtCtrls, Vcl.DBCtrls, Vcl.Menus,
+  Data.DB, FireDAC.Comp.Client, FireDAC.Stan.Intf,
+  FireDAC.Stan.Util,
+  System.DateUtils,
+  System.TypInfo;
+
+Const
+  _CAMPOVIRTUAL       = 'VirtualField';
+  _CAMPOLARGURA       = 64;
+  _PROPRIEDADE_VAZIA  = 'A propriedade %s não foi definida.';
+  _SQL                = 'SELECT %s FROM %s %s %s';
+  _WIDTHFORM          = 800;
+  _MSG_PROPERTY       = 'O componente %s não possui uma dessas propriedades: Caption/Text/Lines.';
+  _MAXLENGTH          = 100;
+
+type
+  TFieldTypes = class;
+  TDataType  = (dtString,dtInteger,dtFloat);
+  TCustomEditExButton = class;
+  TDTEditButton = class;
+
+  TCamposCollectionItem = class(TCollectionItem)
+  private
+    FCampoNome           : string;
+    FCampoTitulo         : string;
+    FLargura             : Integer;
+    FTipo                : TDataType;
+    FFieldTypes          : TFieldTypes;
+    procedure SetCampoNome(const Value: string);
+    procedure SetCampoTitulo(const Value: string);
+    procedure SetLargura(const Value: Integer);
+  protected
+    function GetDisplayName: String; override;
+  public
+    procedure Assign(Source: TPersistent); override;
+  published
+    property Campo         : string       read FCampoNome    write SetCampoNome;
+    property Largura       : Integer      read FLargura      write SetLargura default _CampoLargura;
+    property Titulo        : string       read FCampoTitulo  write SetCampoTitulo;
+    property Tipo          : TDataType    read FTipo         write FTipo  default dtString;
+  end;
+
+  TFieldTypes = class(TCollection)
+  private
+    FOwner: TPersistent;
+    function GetItem(Index: Integer): TCamposCollectionItem;
+    procedure SetItem(Index: Integer; Value: TCamposCollectionItem);
+  protected
+    function GetOwner: TPersistent; override;
+  public
+    constructor Create(AOwner: TPersistent);
+    function Add: TCamposCollectionItem;
+    function Insert(Index: Integer): TCamposCollectionItem;
+    property Items[Index: Integer]: TCamposCollectionItem read GetItem  write SetItem;
+  end;
+
+  TDetalhes = class(TPersistent)
+  strict private
+    FWidthForm     : Integer;
+  private
+    FOwner         : TPersistent;
+    FItems         : TFieldTypes;
+    FConnection    : TFDCustomConnection;
+    FTabela        : String;
+    FKeyField      : String;
+    FKeyValue      : Variant;
+    FFieldResult   : String;
+    FResultado     : String;
+    FOrderBy       : String;
+    FCampoChave    : String;
+    FMostrarTela   : Boolean;
+    FAutoPesquisa  : Boolean;
+    FOndeMostrar   : TControl;
+    FTeclaPesquisa : TShortCut;
+    FFiltro        : String;
+    FCorSelecao: TColor;
+    FCorZebrado: Tcolor;
+    FTitulo: string;
+    FImagem: string;
+    procedure SetCollectionItems(Value: TFieldTypes);
+    procedure SetConnection(const Value: TFDCustomConnection);
+    procedure SetTabela(const Value: String);
+    procedure SetOrderBy(const Value: string);
+    procedure SetOndeMostrar(const Value: TControl);
+    procedure SetFieldResult(const Value: string);
+    procedure SetResultado(const Value: string);
+    procedure SetWidthForm(const Value: Integer);
+    procedure setCorSelecao(const Value: TColor);
+    procedure setCorZebrado(const Value: Tcolor);
+    procedure setTitulo(const Value: string);
+    procedure setImagem(const Value: string);
+    //function  GetCampoChave: string;
+  protected
+    function GetOwner: TPersistent; override;
+  public
+    procedure Assign(Source: TPersistent); override;
+    constructor Create(AOwner: TPersistent);
+    destructor Destroy; override;
+    function GetIndexTitle(const aCampo : String): Integer;
+    property KeyValue       : Variant               read FKeyValue        write FKeyValue;
+    //property CampoChave     : string                read GetCampoChave;
+    property Resultado      : string                read FResultado       write SetResultado;
+  published
+    property Campos         : TFieldTypes           read FItems           write SetCollectionItems;
+    property Connection     : TFDCustomConnection   read FConnection      write SetConnection;
+    property Tabela         : String                read FTabela          write SetTabela;
+    property OrderBy        : string                read FOrderBy         write SetOrderBy;
+    property FieldResult    : string                read FFieldResult     write SetFieldResult;
+    property MostrarTela    : Boolean               read FMostrarTela     write FMostrarTela default True;
+    property OndeMostrar    : TControl              read FOndeMostrar     write SetOndeMostrar;
+    property TeclaPesquisa  : TShortCut             read FTeclaPesquisa   write FTeclaPesquisa;
+    property WidthForm      : Integer               read FWidthForm       write SetWidthForm  default _WIDTHFORM;
+    property AutoPesquisa   : Boolean               read FAutoPesquisa    write FAutoPesquisa default True;
+    property KeyField       : string                read FKeyField        write FKeyField;
+    property Filtro         : String                read FFiltro          write FFiltro;
+    property CorZebrado     :Tcolor                 read FCorZebrado      write setCorZebrado;
+    property CorSelecao     :TColor                 read FCorSelecao      write setCorSelecao;
+    property Titulo         :string                 read FTitulo          write setTitulo;
+    property CaminhoImagem  :string                 read FImagem          write setImagem;
+  end;
+
+  TCustomEditExButton = class(TDBEdit)
+  private
+     FNumbersOnly    : Boolean;
+     FButton         : TSpeedButton;
+     FTBLVirtual     : TFDMemTable;
+     FDataSource     : TDataSource;
+     FConfigurar     : TDetalhes;
+     FTabStop        : Boolean;
+     FBorderWidth    : TBorderWidth;
+     FBorderStyle    : TBorderStyle;
+     FDQuery         : TFDQuery;
+     procedure SetConfigurar(Value: TDetalhes);
+     procedure ButtonClick(Sender: TObject);
+     function  GetGlyph: TBitmap;
+     function  GetNumGlyphs: integer;
+     procedure SetGlyph(const Value: TBitmap);
+     procedure SetNumGlyphs(const n: integer);
+     procedure SetNumbersOnly(const Value: Boolean);
+     function  GetAbout: String;
+     procedure SetResultPesquisa;
+     procedure GetSQLResult(const aValue : String);
+  protected
+     procedure Loaded(); override;
+     procedure VirtualDataSet;
+     function  GetEnabled: boolean;  reintroduce;
+     procedure SetEnabled(Value: boolean); reintroduce;
+     procedure BtnClicar(Sender: TObject); virtual;
+     procedure DoButtonClick; virtual; abstract;
+     property  Button: TSpeedButton read FButton write FButton;
+     property  Enabled: boolean read GetEnabled write SetEnabled;
+     property  Glyph: TBitmap read GetGlyph write SetGlyph;
+     property  NumGlyphs: integer read GetNumGlyphs write SetNumGlyphs;
+     property  NumbersOnly: Boolean read FNumbersOnly write SetNumbersOnly default False;
+  public
+     constructor Create(AOwner: TComponent); override;
+     destructor  Destroy; override;
+     function    ExecutarPesquisa () : Boolean;
+  published
+     property About            : String           read GetAbout         stored False;
+     property Configurar       : TDetalhes        read FConfigurar      write SetConfigurar;
+     property TabStop          : Boolean          read FTabStop         write FTabStop default True;
+  end;
+
+  TDTEditButton = class(TCustomEditExButton)
+  private
+     FOnButtonClick : TNotifyEvent;
+     procedure SetEditRect;
+  protected
+     procedure DoButtonClick; override;
+     procedure CreateParams(var Params: TCreateParams); override;
+     procedure CreateWnd; override;
+     procedure WMKeyDown(var Message: TWMKeyDown); message WM_KEYDOWN;
+     procedure CMExit(var Message: TCMExit); message CM_EXIT;
+     procedure CMChanged(var Message: TCMChanged); message CM_CHANGED;
+  public
+     constructor Create(AOwner: TComponent); override;
+     function ExecPesquisar(const aSQL : String) : Variant;
+  published
+     //property DataSource;
+     //property DataField;
+
+     property NumbersOnly;
+     property AutoSelect;
+     property BorderStyle;
+     property Color;
+     property Ctl3d;
+     property Enabled;
+     property Name;
+     property Font;
+     property Glyph;
+     property HideSelection;
+     property NumGlyphs;
+     property ParentColor;
+     property ParentCtl3D;
+     property ParentFont;
+     property ParentShowHint;
+     property PopupMenu;
+     [Default(False)]
+     property ReadOnly default False;
+     property ShowHint;
+     property TabOrder;
+     property Text;
+     property Visible;
+     property OnButtonClick: TNotifyEvent read FOnButtonClick write FOnButtonClick;
+     property OnChange;
+     property OnClick;
+     property OnDblClick;
+     property OnEnter;
+     property OnExit;
+     property OnKeyDown;
+     property OnKeyPress;
+     property OnKeyUp;
+  end;
+var
+  vAZEditButton : TDTEditButton;
+
+
+procedure Register;
+
+implementation
+
+uses FEditDialog;
+
+procedure Register;
+begin
+  RegisterComponents('DT Inovacao',[TDTEditButton]);
+end;
+
+procedure TCustomEditExButton.Loaded;
+var
+  mAutoPesquisa : Boolean;
+begin
+  inherited;
+  mAutoPesquisa := FConfigurar.AutoPesquisa;
+  FConfigurar.AutoPesquisa := False;
+  try
+    if (DataSource=nil) or (Trim(DataField).IsEmpty) then
+      VirtualDataSet
+    else if DataSource.DataSet=nil then
+      VirtualDataSet
+  finally
+    FConfigurar.AutoPesquisa :=  mAutoPesquisa;
+  end;
+end;
+
+constructor TCustomEditExButton.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FConfigurar         := TDetalhes.Create(Self);
+  ControlStyle        := ControlStyle - [csSetCaption];
+  FNumbersOnly        := False;
+  TabStop             := True;
+
+  FButton := TSpeedButton.Create(self);
+  with FButton do
+  begin
+    Caption      := '...';
+    Align        := alRight;
+    Visible      := True;
+    Parent       := Self;
+    Visible      := True;
+    Cursor       := crHandPoint;
+    TabStop      := False;
+    OnClick      := ButtonClick;
+  end;
+  FDataSource    := TDataSource.Create(Nil);
+  DataSource     := FDataSource;
+end;
+
+destructor TCustomEditExButton.Destroy;
+begin
+  if FDQuery<>nil then
+  begin
+    FDQuery.Close;
+    FreeAndNil(FDQuery);
+  end;
+
+  if FTBLVirtual<>Nil then
+  begin
+    FTBLVirtual.Release;
+    FTBLVirtual := nil;
+  end;
+  FConfigurar.Free;
+  inherited;
+end;
+
+// -------------------------------------------------------------------------------
+// Esse Metodo cria dataset virtual para permitir edição no campo quando
+// nenhum datasource (vinculado a um dataset) foi definido pelo programador
+// -------------------------------------------------------------------------------
+procedure TCustomEditExButton.VirtualDataSet;
+begin
+  FTBLVirtual          := TFDMemTable.Create(Nil);
+  DataSource           := FDataSource;
+  DataSource.DataSet   := FTBLVirtual;
+  DataField            := _CAMPOVIRTUAL;
+  FTBLVirtual.FieldDefs.Add(_CAMPOVIRTUAL, ftString, _MAXLENGTH, False);
+  FTBLVirtual.CreateDataSet;
+end;
+
+function TCustomEditExButton.ExecutarPesquisa: Boolean;
+var
+  mAutoPesquisa  : Boolean;
+begin
+  Result := False;
+  if FDataSource=nil then
+    raise Exception.Create('FDataSource não foi definido.');
+  if DataSource=nil then
+    raise Exception.Create('DataSource não foi definido.');
+  mAutoPesquisa := False;
+  if FConfigurar.Connection = nil then
+    raise Exception.Create(format(_PROPRIEDADE_VAZIA,['Connection']));
+  if FConfigurar.Campos.Count<0 then
+    raise Exception.Create(format(_PROPRIEDADE_VAZIA,['Campos']));
+  if Trim(Self.Configurar.KeyField).IsEmpty then
+    raise Exception.Create(format(_PROPRIEDADE_VAZIA,['KeyField']));
+  if Trim(FConfigurar.Tabela).IsEmpty then
+    raise Exception.Create(format(_PROPRIEDADE_VAZIA,['Tabela']));
+  if not FConfigurar.FMostrarTela then
+    exit;
+  try
+    FrmEditDialog       := TFrmEditDialog.Create(Nil);
+    FrmEditDialog.Busca := FConfigurar;
+    FrmEditDialog.Width := FConfigurar.WidthForm;
+    if FrmEditDialog.ShowModal= mrOk then
+    begin
+      mAutoPesquisa := FConfigurar.AutoPesquisa;
+      FConfigurar.AutoPesquisa := False; // pra evitar fazer novamente outra consulta SQL se "AutoPesquisa" estiver definood como "True"
+      if not (DataSource.DataSet.State in [dsEdit,dsInsert] )then
+        DataSource.DataSet.Edit;
+      DataSource.DataSet.FieldByName(self.DataField).AsVariant := FConfigurar.KeyValue;
+      SetResultPesquisa;
+      Application.ProcessMessages;
+      Result := True;
+    end;
+  finally
+    FConfigurar.AutoPesquisa := mAutoPesquisa; // retona ao estado que estava
+    FrmEditDialog.Free;
+  end;
+end;
+
+procedure TCustomEditExButton.SetResultPesquisa;
+var
+  mPropCaption  : PPropInfo;
+  mPropText     : PPropInfo;
+  mPropLines    : PPropInfo;
+begin
+  if not Assigned(FConfigurar.OndeMostrar) then
+    exit;
+  mPropCaption := GetPropInfo(FConfigurar.OndeMostrar, 'Caption');
+  mPropText    := GetPropInfo(FConfigurar.OndeMostrar, 'Text');
+  mPropLines   := GetPropInfo(FConfigurar.OndeMostrar, 'Lines');
+  if mPropCaption<>Nil then
+    TStaticText(FConfigurar.OndeMostrar).Caption := FConfigurar.Resultado
+  else if mPropText<>Nil then
+    TEdit(FConfigurar.OndeMostrar).Text := FConfigurar.Resultado
+  else if mPropLines<>Nil then
+    TMemo(FConfigurar.OndeMostrar).Lines.Text := FConfigurar.Resultado
+  else
+    raise Exception.Create(Format(_MSG_PROPERTY,[TControl(FConfigurar.OndeMostrar).Name]));
+
+
+end;
+
+procedure TCustomEditExButton.BtnClicar(Sender: TObject);
+begin
+  ExecutarPesquisa;
+end;
+
+procedure TCustomEditExButton.ButtonClick(Sender: TObject);
+begin
+  DoButtonClick;
+  SetFocus;
+end;
+
+function TCustomEditExButton.GetAbout: String;
+begin
+   Result := 'DT Componentes - ' + YearOf(date).ToString;
+end;
+
+function TCustomEditExButton.GetEnabled: boolean;
+begin
+  Result := inherited Enabled;
+end;
+
+function TCustomEditExButton.GetGlyph: TBitmap;
+begin
+  Result := FButton.Glyph;
+end;
+
+function TCustomEditExButton.GetNumGlyphs: integer;
+begin
+  Result := FButton.NumGlyphs;
+end;
+
+procedure TCustomEditExButton.GetSQLResult(const aValue : String);
+const
+  _SQL_RESULT  = 'SELECT %s FROM %s %s';
+var
+  mWhere   : String;
+begin
+  if Trim(FConfigurar.KeyField)='' then
+  begin
+    if Trim(Self.Configurar.KeyField).IsEmpty then
+      raise Exception.Create(format(_PROPRIEDADE_VAZIA,['KeyField']));
+  end;
+
+  if FDQuery=nil then
+  begin
+    FDQuery := TFDQuery.Create(Self);
+    FDQuery.Connection := Configurar.Connection;
+  end;
+  mWhere := ' WHERE ';
+  if FConfigurar.Filtro > '' then
+  begin
+    mWhere := mWhere + FConfigurar.Filtro;
+    mWhere := mWhere + ' AND ';
+  end;
+
+  if (UpperCase(FConfigurar.KeyField)='ID')   then  //or (UpperCase(FConfigurar.KeyField)='CODIGO')
+    mWhere := mWhere + FConfigurar.KeyField+'=' + aValue             // será tratado como numerico
+  else
+    mWhere := mWhere + FConfigurar.KeyField+'=' + QuotedStr(aValue); // sera tratado como texto entre apóstrofos (aspas simples).
+  try
+    FDQuery.Close;
+    FDQuery.SQL.Clear;
+    FDQuery.SQL.Add(Format(_SQL_RESULT,[FConfigurar.FieldResult, FConfigurar.Tabela, mWhere]));
+    FDQuery.Open;
+    FConfigurar.Resultado := FDQuery.FieldByName(FConfigurar.FieldResult).AsString;
+
+    if FConfigurar.Resultado = '' then
+    begin
+       Self.Text                           := '';
+       TEdit(FConfigurar.OndeMostrar).Text := '';
+       self.SetFocus;
+    end else begin
+       SetResultPesquisa;
+    end;
+  finally
+    FDQuery.Close;
+  end;
+//
+end;
+
+procedure TCustomEditExButton.SetEnabled(Value: boolean);
+begin
+  inherited Enabled := Value;
+  FButton.Enabled := Value;
+end;
+
+procedure TCustomEditExButton.SetGlyph(const Value: TBitmap);
+begin
+   FButton.Glyph := Value;
+end;
+
+procedure TCustomEditExButton.SetNumGlyphs(const n: integer);
+begin
+   FButton.NumGlyphs := n;
+end;
+
+procedure TCustomEditExButton.SetConfigurar(Value: TDetalhes);
+begin
+  FConfigurar.Assign(Value);
+end;
+
+procedure TCustomEditExButton.SetNumbersOnly(const Value: Boolean);
+begin
+  if FNumbersOnly <> Value then
+  begin
+    FNumbersOnly := Value;
+    if FNumbersOnly then
+      SetWindowLong(Handle, GWL_STYLE, GetWindowLong(Handle, GWL_STYLE) or ES_NUMBER)
+    else
+      SetWindowLong(Handle, GWL_STYLE, GetWindowLong(Handle, GWL_STYLE) and not ES_NUMBER);
+  end;
+end;
+
+{ TCamposCollectionItem }
+procedure TCamposCollectionItem.Assign(Source: TPersistent);
+begin
+  if Source is TCamposCollectionItem then
+  begin
+    FCampoNome     := TCamposCollectionItem(Source).FCampoNome;
+    FCampoTitulo   := TCamposCollectionItem(Source).FCampoTitulo;
+    FLargura       := TCamposCollectionItem(Source).FLargura;
+    FTipo          := TCamposCollectionItem(Source).FTipo;
+  end
+  else
+    inherited Assign(Source);
+end;
+
+function TCamposCollectionItem.GetDisplayName: String;
+begin
+  Result := Format('Item %d',[Index]);
+end;
+
+procedure TCamposCollectionItem.SetCampoNome(const Value: string);
+begin
+  FCampoNome   := UpperCase(StringReplace(Trim(Value),#32,'', [rfReplaceAll, rfIgnoreCase]));
+  if FCampoTitulo.IsEmpty then
+    FCampoTitulo := FCampoNome; // Por padrão assume nome do campo (podendo modificar para outro nome)
+  SetLargura(_CampoLargura);  // Definir padrao de largura
+end;
+
+procedure TCamposCollectionItem.SetCampoTitulo(const Value: string);
+var
+  mCampo : String;
+begin
+  mCampo := Trim(Value);
+  if mCampo.IsEmpty then
+    mCampo := Trim(FCampoNome); // para não correr risco de o programador esquecer de titulo ao campo
+  FCampoTitulo := mCampo;
+end;
+
+procedure TCamposCollectionItem.SetLargura(const Value: Integer);
+begin
+  if Value>0 then
+    FLargura := Value
+  else
+    FLargura := _CampoLargura;
+end;
+
+{ TDetalhes }
+function TFieldTypes.Add: TCamposCollectionItem;
+begin
+  Result := TCamposCollectionItem(inherited Add);
+end;
+
+constructor TFieldTypes.Create(AOwner: TPersistent);
+begin
+  inherited Create(TCamposCollectionItem);
+  FOwner := AOwner;
+end;
+
+function TFieldTypes.GetItem(Index: Integer): TCamposCollectionItem;
+begin
+  Result := TCamposCollectionItem(inherited GetItem(Index));
+end;
+
+function TFieldTypes.GetOwner: TPersistent;
+begin
+  Result := FOwner;
+end;
+
+function TFieldTypes.Insert(Index: Integer): TCamposCollectionItem;
+begin
+  Result := TCamposCollectionItem(inherited Insert(Index));
+end;
+
+procedure TFieldTypes.SetItem(Index: Integer; Value: TCamposCollectionItem);
+begin
+  inherited SetItem(Index, Value);
+end;
+
+function TDetalhes.GetIndexTitle(const aCampo : String): Integer;
+var
+  i     : integer;
+  mItem : TCamposCollectionItem;
+begin
+  Result := - 1;
+  for I := 0 to FItems.Count-1 do
+  begin
+    mItem := FItems.Items[i];
+    if AnsiLowerCase(mItem.Titulo)=AnsiLowerCase(Trim(aCampo)) then
+    begin
+      Result := i;
+      exit;
+    end;
+  end;
+end;
+
+procedure TDetalhes.Assign(Source: TPersistent);
+begin
+  if Source is TDetalhes then
+    Campos := TDetalhes(Source).FItems
+  else
+    inherited Assign(Source);
+end;
+
+constructor TDetalhes.Create(AOwner: TPersistent);
+begin
+  inherited Create;
+  FOwner        := AOwner;
+  FKeyValue     := Null;
+  FMostrarTela  := True;
+  FAutoPesquisa := True;
+  FItems        := TFieldTypes.Create(Self);
+  FCampoChave   := '';
+  FWidthForm    := _WIDTHFORM;
+  FCorSelecao   := $00ECE3BD;
+  FCorZebrado   := $00F8F5E6;
+  FTitulo       := 'Pesquisa';
+  if FDIsDesigning(TComponent(Self)) then
+    FConnection := FDFindDefaultConnection(TComponent(Self));
+end;
+
+destructor TDetalhes.Destroy;
+begin
+  FItems.Free;
+  inherited Destroy;
+end;
+
+function TDetalhes.GetOwner: TPersistent;
+begin
+  Result := FOwner;
+end;
+
+procedure TDetalhes.SetCollectionItems(Value: TFieldTypes);
+begin
+  FItems.Assign(Value);
+end;
+
+procedure TDetalhes.SetConnection(const Value: TFDCustomConnection);
+begin
+  FConnection := Value;
+end;
+
+procedure TDetalhes.setCorSelecao(const Value: TColor);
+begin
+  FCorSelecao := Value;
+end;
+
+procedure TDetalhes.setCorZebrado(const Value: Tcolor);
+begin
+  FCorZebrado := Value;
+end;
+
+procedure TDetalhes.SetFieldResult(const Value: string);
+begin
+  FFieldResult := UpperCase(Trim(Value));
+end;
+
+
+procedure TDetalhes.setImagem(const Value: string);
+begin
+  FImagem := Value;
+end;
+
+procedure TDetalhes.SetOndeMostrar(const Value: TControl);
+begin
+  FOndeMostrar := Value;
+end;
+
+procedure TDetalhes.SetOrderBy(const Value: string);
+begin
+  FOrderBy := UpperCase(Trim(Value));
+end;
+
+procedure TDetalhes.SetResultado(const Value: string);
+begin
+  FResultado := UpperCase(Trim(Value));
+end;
+
+procedure TDetalhes.SetTabela(const Value: String);
+begin
+  FTabela := UpperCase(StringReplace(Trim(Value),#32,'', [rfReplaceAll, rfIgnoreCase]));
+end;
+
+procedure TDetalhes.setTitulo(const Value: string);
+begin
+  FTitulo := Value;
+end;
+
+procedure TDetalhes.SetWidthForm(const Value: Integer);
+begin
+  if FWidthForm<>Value then
+  begin
+    if Value>=_WIDTHFORM then
+      FWidthForm := Value
+    else
+      FWidthForm := _WIDTHFORM; // não permitir largura menor que o padrão _WIDTHFORM
+  end;
+  if Value>Screen.Width then
+    FWidthForm := (Screen.Width - 100); // não permtir largura maior que a resolução do monitor
+end;
+
+{ TDTEditButton }
+procedure TDTEditButton.CMChanged(var Message: TCMChanged);
+var
+  mValue : String;
+begin
+//  if (csDesigning in ComponentState ) then // não remover essa linha... ou ocorrerá erro ao abir formulario em modo design (desenvolvimento)
+//    exit;
+//  if not FConfigurar.AutoPesquisa  then
+//    exit;
+//  if self.DataSource=nil  then
+//    exit;
+//  if FConfigurar.Connection=nil  then
+//    exit;
+//  mValue := Trim(Self.Text);
+//  if mValue.IsEmpty then
+//  begin
+//    FConfigurar.Resultado := '';
+//    SetResultPesquisa;
+//    exit;
+//  end;
+//  GetSQLResult(mValue);
+end;
+
+procedure TDTEditButton.CMExit(var Message: TCMExit);
+var
+  mValue : String;
+begin
+  if (csDesigning in ComponentState ) then // não remover essa linha... ou ocorrerá erro ao abir formulario em modo design (desenvolvimento)
+    exit;
+  if not FConfigurar.AutoPesquisa  then
+    exit;
+  if self.DataSource=nil  then
+    exit;
+  if FConfigurar.Connection=nil  then
+    exit;
+  mValue    := Trim(Self.Text).Replace('#$D#$A','');
+  Self.Text := mValue;
+  if mValue.IsEmpty then
+  begin
+    FConfigurar.Resultado := '';
+    if FConfigurar.Resultado = '' then
+    begin
+      TEdit(FConfigurar.OndeMostrar).Text := '';
+      TEdit(self).Text                    := '';
+      TEdit(Self).SetFocus;
+      exit;
+    end else begin
+      keybd_event(VK_TAB,0,0,0);
+    end;
+      exit;
+  end;
+  GetSQLResult(mValue);
+end;
+
+constructor TDTEditButton.Create(AOwner: TComponent);
+begin
+  inherited;
+  TabStop := True;
+end;
+
+procedure TDTEditButton.CreateParams(var Params: TCreateParams);
+begin
+  inherited CreateParams(Params);
+  Params.Style := Params.Style or ES_MULTILINE or WS_CLIPCHILDREN; // ORIGINAL
+end;
+
+procedure TDTEditButton.CreateWnd;
+begin
+  inherited CreateWnd;
+  SetEditRect;
+end;
+
+procedure TDTEditButton.SetEditRect;
+var
+  Loc: TRect;
+begin
+  SendMessage(Handle, EM_GETRECT, 0, LongInt(@Loc));
+  Loc.Bottom := ClientHeight + 1;
+  Loc.Right  := ClientWidth - FButton.Width - 2;
+  Loc.Top    := 0;
+  Loc.Left   := 0;
+  SendMessage(Handle, EM_SETRECTNP, 0, LongInt(@Loc));
+  SendMessage(Handle, EM_GETRECT,   0, LongInt(@Loc));
+end;
+
+procedure TDTEditButton.WMKeyDown(var Message: TWMKeyDown);
+begin
+  inherited;
+  if (FConfigurar.TeclaPesquisa <> 0) and (FConfigurar.FTeclaPesquisa = ShortCut(Message.CharCode,KeyDataToShiftState(Message.KeyData))  ) then
+  begin
+    Message.CharCode := 0;
+    ExecutarPesquisa;
+  end;
+
+  if Message.CharCode = VK_RETURN then
+  begin
+       if Self.Text = '' then
+       begin
+           Message.CharCode := 0;
+         ExecutarPesquisa;
+       end else begin
+         keybd_event(VK_TAB,0,0,0);
+       end;
+  end;
+end;
+
+
+procedure TDTEditButton.DoButtonClick;
+begin
+  if Assigned(FOnButtonClick) then
+    FOnButtonClick(Self);
+  ExecutarPesquisa;
+end;
+
+function TDTEditButton.ExecPesquisar(const aSQL: String): Variant;
+begin
+  Result := Unassigned;
+  Result := FConfigurar.Connection.ExecSQLScalar(aSQL);
+end;
+
+end.
+
